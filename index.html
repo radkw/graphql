@@ -1,1 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Profile with GraphQL</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      margin-top: 20px;
+    }
+    .container {
+      max-width: 600px;
+      width: 100%;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .error {
+      color: red;
+      font-size: 0.9em;
+    }
+    svg {
+      width: 100%;
+      height: 300px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Login</h2>
+    <form id="login-form">
+      <label for="username">Username or Email:</label>
+      <input type="text" id="username" required>
+      <label for="password">Password:</label>
+      <input type="password" id="password" required>
+      <button type="submit">Login</button>
+      <p id="error-message" class="error"></p>
+    </form>
+
+    <div id="profile" style="display: none;">
+      <h2>User Profile</h2>
+      <p><strong>ID:</strong> <span id="user-id"></span></p>
+      <p><strong>Username:</strong> <span id="user-login"></span></p>
+      <p><strong>XP:</strong> <span id="user-xp"></span></p>
+      
+      <!-- SVG Graphs Section -->
+      <h3>Statistics</h3>
+      <svg id="xp-graph" viewBox="0 0 100 100">
+        <!-- Placeholder for XP progress graph -->
+      </svg>
+      <svg id="project-ratio-graph" viewBox="0 0 100 100">
+        <!-- Placeholder for Pass/Fail ratio graph -->
+      </svg>
+    </div>
+  </div>
+
+  <script>
+    const loginForm = document.getElementById('login-form');
+    const profileSection = document.getElementById('profile');
+    const errorMessage = document.getElementById('error-message');
+
+    async function login(event) {
+      event.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      const credentials = btoa(`${username}:${password}`);
+      const response = await fetch('https://learn.01founders.co/api/auth/signin', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${credentials}`
+        }
+      });
+      
+      if (!response.ok) {
+        errorMessage.textContent = 'Invalid login credentials. Please try again.';
+        return;
+      }
+
+      const data = await response.json();
+      const jwt = data.token;
+      localStorage.setItem('jwt', jwt);
+      fetchUserProfile(jwt);
+    }
+
+    async function fetchUserProfile(jwt) {
+      const response = await fetch('https://learn.01founders.co/api/graphql-engine/v1/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`
+        },
+        body: JSON.stringify({
+          query: `{
+            user {
+              id
+              login
+              transactions {
+                amount
+              }
+            }
+          }`
+        })
+      });
+
+      const result = await response.json();
+      if (result.errors) {
+        errorMessage.textContent = 'Error fetching user profile data.';
+        return;
+      }
+
+      const user = result.data.user[0];
+      document.getElementById('user-id').textContent = user.id;
+      document.getElementById('user-login').textContent = user.login;
+      document.getElementById('user-xp').textContent = user.transactions.reduce((sum, tx) => sum + tx.amount, 0);
+      profileSection.style.display = 'block';
+    }
+
+    loginForm.addEventListener('submit', login);
+  </script>
+</body>
+</html>
 
